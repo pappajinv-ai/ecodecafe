@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Income Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+      body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; min-height:100vh; margin:0; padding:18px; box-sizing:border-box; }
+      .container { width:100%; max-width:1100px; margin: 0 auto; background-color: #fff; padding:20px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.06); border:1px solid #e6e9ef; }
+      .form-group label { font-weight:600; color:#374151; margin-bottom:6px; display:block; }
+      input[type="date"], input[type="text"], input[type="password"] { width:100%; padding:12px; border:1px solid #d1d5db; border-radius:8px; font-size:1rem; box-sizing:border-box; }
+      .btn { padding:12px 18px; border-radius:10px; font-weight:700; cursor:pointer; transition:transform .15s ease; min-height:44px; display:inline-flex; align-items:center; justify-content:center; }
+      .btn-primary { background:#4f46e5; color:#fff; border:none; box-shadow:0 6px 14px rgba(79,70,229,0.18); }
+      .btn-secondary { background:#eef2ff; color:#1e3a8a; border:1px solid #c7d2fe; }
+      .tabs { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+      .tab-button { padding:8px 12px; background:#fafafa; border:1px solid #e6e6e6; border-bottom:none; border-radius:8px 8px 0 0; font-weight:600; color:#374151; white-space:nowrap; }
+      .tab-button.active { background:#4f46e5; color:#fff; border-color:#4f46e5; }
+      .tab-content { border:1px solid #e6e6e6; border-top:none; padding:12px; border-radius:0 0 8px 8px; background:#fff; }
+      .report-table { width:100%; border-collapse:collapse; margin-top:10px; }
+      .report-table th, .report-table td { border:1px solid #e5e7eb; padding:10px; text-align:left; font-size:14px; }
+      .report-table th { background:#f3f4f6; font-weight:700; }
+      .overall-summary { background:#f8fafc; border:1px solid #e6f0ff; border-radius:8px; padding:12px; margin-bottom:14px; }
+      .message-box { padding:12px; border-radius:8px; margin-top:12px; display:none; font-weight:700; text-align:center; }
+      .message-box.success { background:#d1fae5; color:#065f46; border:1px solid #34d399; display:block; }
+      .message-box.error { background:#fee2e2; color:#991b1b; border:1px solid #ef4444; display:block; }
+      .loading-spinner { border:4px solid rgba(255,255,255,0.2); border-top:4px solid #fff; border-radius:50%; width:18px; height:18px; animation:spin 1s linear infinite; margin-left:8px; display:none; }
+      .btn.loading .loading-spinner { display:inline-block; }
+      @keyframes spin { 0%{transform:rotate(0deg)}100%{transform:rotate(360deg)} }
+      /* small screens */
+      @media (max-width:640px) {
+        .container { padding:16px; }
+        .form-group { margin-bottom:12px; }
+        .flex-row { flex-direction:column; gap:10px; }
+        .btn { width:100%; }
+        .tabs { gap:4px; }
+      }
+      .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Admin Login Form -->
+      <div id="adminLoginSection">
+        <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Admin Report Login</h2>
+        <form id="adminLoginForm" class="space-y-4">
+          <div class="form-group">
+            <label for="adminUsername">Username:</label>
+            <input type="text" id="adminUsername" name="adminUsername" required>
+          </div>
+          <div class="form-group">
+            <label for="adminPassword">Password:</label>
+            <input type="password" id="adminPassword" name="adminPassword" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-full">
+            <span>Login</span>
+            <div class="loading-spinner"></div>
+          </button>
+        </form>
+      </div>
+
+      <!-- Admin Report Section (Hidden by default) -->
+      <div id="reportSection" class="hidden">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Consolidated Income Report</h2>
+        
+        <div class="flex flex-row sm:flex-row gap-4 mb-4" style="display:flex;flex-wrap:wrap;">
+          <div class="form-group" style="flex:1;min-width:0">
+            <label for="fromDate">From Date:</label>
+            <input type="date" id="fromDate" class="w-full" required>
+          </div>
+          <div class="form-group" style="flex:1;min-width:0">
+            <label for="toDate">To Date:</label>
+            <input type="date" id="toDate" class="w-full" required>
+          </div>
+          <div style="align-self:flex-end">
+            <button id="generateReportBtn" class="btn btn-primary">
+              <span>Generate Report</span>
+              <div class="loading-spinner"></div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Overall Summary Section -->
+        <div id="overallSummary" class="overall-summary hidden">
+          <h3>Overall Summary for Selected Period</h3>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e6eefc;"><span>Total Collection Across All Locations:</span> <span id="overallTotalCollection"></span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e6eefc;"><span>Total Online Collection Across All Locations:</span> <span id="overallTotalOnlineCollection"></span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #e6eefc;"><span>Total Cash Collection Across All Locations:</span> <span id="overallTotalCashCollection"></span></div>
+          <div style="display:flex;justify-content:space-between;padding:8px 0;"><span>Total Remittance to Bank Across All Locations:</span> <span id="overallTotalRemittanceToBank"></span></div>
+        </div>
+
+        <div class="flex justify-end mb-4" style="display:flex;justify-content:flex-end;">
+          <button id="downloadReportBtn" class="btn btn-secondary hidden">
+            <span>Download Report (CSV)</span>
+            <div class="loading-spinner"></div>
+          </button>
+        </div>
+
+        <!-- PDF Download -->
+        <div class="flex justify-end mb-4" style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+          <button id="downloadAdminPdfBtn" class="btn btn-secondary">
+            <span>Download PDF Report</span>
+            <div class="loading-spinner"></div>
+          </button>
+        </div>
+
+        <div class="tabs" id="reportTabs" role="tablist">
+          <!-- Tab buttons will be inserted here by JS -->
+        </div>
+
+        <div id="tabContentContainer">
+          <!-- Tab content (tables) will be inserted here by JS -->
+        </div>
+
+        <button id="adminLogoutButton" class="btn btn-secondary w-full mt-6">Logout</button>
+      </div>
+
+      <div id="messageBox" class="message-box hidden"></div>
+    </div>
+
+    <script>
+      // DOM Elements
+      const adminLoginSection = document.getElementById('adminLoginSection');
+      const reportSection = document.getElementById('reportSection');
+      const adminLoginForm = document.getElementById('adminLoginForm');
+      const fromDateInput = document.getElementById('fromDate');
+      const toDateInput = document.getElementById('toDate');
+      const generateReportBtn = document.getElementById('generateReportBtn');
+      const reportTabsContainer = document.getElementById('reportTabs');
+      const tabContentContainer = document.getElementById('tabContentContainer');
+      const adminLogoutButton = document.getElementById('adminLogoutButton');
+      const messageBox = document.getElementById('messageBox');
+      const overallSummaryDiv = document.getElementById('overallSummary');
+      const overallTotalCollectionSpan = document.getElementById('overallTotalCollection');
+      const overallTotalOnlineCollectionSpan = document.getElementById('overallTotalOnlineCollection');
+      const overallTotalCashCollectionSpan = document.getElementById('overallTotalCashCollection');
+      const overallTotalRemittanceToBankSpan = document.getElementById('overallTotalRemittanceToBank');
+      const downloadReportBtn = document.getElementById('downloadReportBtn');
+
+      // Set default date range (e.g., current month)
+      const today = new Date();
+      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const yyyy = today.getFullYear();
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const dd = String(today.getDate()).padStart(2, '0');
+      
+      const firstDayYyyy = firstDayOfMonth.getFullYear();
+      const firstDayMm = String(firstDayOfMonth.getMonth() + 1).padStart(2, '0');
+      const firstDayDd = String(firstDayOfMonth.getDate()).padStart(2, '0');
+
+      if (fromDateInput) fromDateInput.value = `${firstDayYyyy}-${firstDayMm}-${firstDayDd}`;
+      if (toDateInput) toDateInput.value = `${yyyy}-${mm}-${dd}`;
+
+      const todayFormatted = `${yyyy}-${mm}-${dd}`;
+      if (fromDateInput) fromDateInput.setAttribute('max', todayFormatted);
+      if (toDateInput) toDateInput.setAttribute('max', todayFormatted);
+
+      let currentReportData = null;
+
+      function showAdminLoginForm() {
+        adminLoginSection.classList.remove('hidden');
+        reportSection.classList.add('hidden');
+        overallSummaryDiv.classList.add('hidden');
+        downloadReportBtn.classList.add('hidden');
+        hideMessage();
+        adminLoginForm.reset();
+      }
+
+      function showReportSection() {
+        adminLoginSection.classList.add('hidden');
+        reportSection.classList.remove('hidden');
+        hideMessage();
+      }
+
+      document.addEventListener('DOMContentLoaded', showAdminLoginForm);
+
+      adminLoginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const loginButton = adminLoginForm.querySelector('button[type="submit"]');
+        loginButton.classList.add('loading');
+        loginButton.disabled = true;
+        hideMessage();
+
+        const username = document.getElementById('adminUsername').value;
+        const password = document.getElementById('adminPassword').value;
+
+        try {
+          const response = await google.script.run
+            .withSuccessHandler((result) => {
+              loginButton.classList.remove('loading');
+              loginButton.disabled = false;
+
+              if (result.success) {
+                showReportSection();
+                showMessage(result.message, "success");
+                generateReport(); // Automatically generate report for default dates after login
+              } else {
+                showMessage(result.message || "Login failed. Please check credentials.", "error");
+              }
+            })
+            .withFailureHandler((error) => {
+              console.error("Apps Script admin login call failed:", error);
+              showMessage("An unexpected error occurred during admin login. Please try again.", "error");
+              loginButton.classList.remove('loading');
+              loginButton.disabled = false;
+            })
+            .handleAdminLogin(username, password);
+        } catch (error) {
+          console.error("Admin login process error:", error);
+          showMessage("An unexpected error occurred. Please try again.", "error");
+          loginButton.classList.remove('loading');
+          loginButton.disabled = false;
+        }
+      });
+
+      generateReportBtn.addEventListener('click', generateReport);
+
+      async function generateReport() {
+        hideMessage();
+        overallSummaryDiv.classList.add('hidden');
+        downloadReportBtn.classList.add('hidden');
+
+        const fromDateStr = fromDateInput.value;
+        const toDateStr = toDateInput.value;
+
+        if (!fromDateStr || !toDateStr) {
+          showMessage("Please select both 'From Date' and 'To Date'.", "error");
+          return;
+        }
+
+        const fromDate = new Date(fromDateStr);
+        const toDate = new Date(toDateStr);
+        const todayEndOfDay = new Date();
+        todayEndOfDay.setHours(23, 59, 59, 999);
+
+        if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
+          showMessage("Invalid date format. Please use DD-MM-YYYY.", "error");
+          return;
+        }
+        if (fromDate.getTime() > toDate.getTime()) {
+          showMessage("'From Date' cannot be after 'To Date'.", "error");
+          return;
+        }
+        if (fromDate.getTime() > todayEndOfDay.getTime() || toDate.getTime() > todayEndOfDay.getTime()) {
+          showMessage("Dates cannot be in the future.", "error");
+          return;
+        }
+
+        generateReportBtn.classList.add('loading');
+        generateReportBtn.disabled = true;
+
+        try {
+          const response = await google.script.run
+            .withSuccessHandler(renderReport)
+            .withFailureHandler(onReportFailure)
+            .getAggregatedReportData(fromDateStr, toDateStr);
+        } catch (error) {
+          console.error("Report data fetch failed:", error);
+          onReportFailure(error);
+        }
+      }
+
+      function renderReport(reportData) {
+        generateReportBtn.classList.remove('loading');
+        generateReportBtn.disabled = false;
+
+        if (!reportData || reportData.length === 0) {
+          showMessage("No report data found for the selected date range.", "info");
+          reportTabsContainer.innerHTML = '';
+          tabContentContainer.innerHTML = '';
+          overallSummaryDiv.classList.add('hidden');
+          downloadReportBtn.classList.add('hidden');
+          return;
+        }
+
+        currentReportData = reportData;
+
+        let overallTotalCollection = 0;
+        let overallTotalOnlineCollection = 0;
+        let overallTotalCashCollection = 0;
+        let overallTotalRemittanceToBank = 0;
+
+        reportData.forEach(locationData => {
+          overallTotalCollection += locationData.totalCollection;
+          overallTotalOnlineCollection += locationData.totalOnlineCollection;
+          overallTotalCashCollection += locationData.totalCashCollection;
+          overallTotalRemittanceToBank += locationData.totalRemittanceToBank;
+        });
+
+        overallTotalCollectionSpan.textContent = formatNumber(overallTotalCollection);
+        overallTotalOnlineCollectionSpan.textContent = formatNumber(overallTotalOnlineCollection);
+        overallTotalCashCollectionSpan.textContent = formatNumber(overallTotalCashCollection);
+        overallTotalRemittanceToBankSpan.textContent = formatNumber(overallTotalRemittanceToBank);
+        overallSummaryDiv.classList.remove('hidden');
+        downloadReportBtn.classList.remove('hidden');
+
+        reportTabsContainer.innerHTML = '';
+        tabContentContainer.innerHTML = '';
+
+        let firstTabId = '';
+
+        reportData.forEach((locationData, index) => {
+          const locationId = locationData.locationName.replace(/[^a-zA-Z0-9]/g, '');
+          const tabButton = document.createElement('button');
+          tabButton.className = 'tab-button';
+          tabButton.textContent = locationData.locationName;
+          tabButton.setAttribute('data-target', locationId);
+          tabButton.addEventListener('click', () => switchTab(locationId));
+          reportTabsContainer.appendChild(tabButton);
+
+          const tabContent = document.createElement('div');
+          tabContent.id = `tabContent_${locationId}`;
+          tabContent.className = 'tab-content hidden';
+          tabContentContainer.appendChild(tabContent);
+
+          renderTable(locationData, tabContent);
+
+          if (index === 0) {
+            firstTabId = locationId;
+          }
+        });
+
+        if (firstTabId) {
+          switchTab(firstTabId);
+        }
+        showMessage("Report generated successfully!", "success");
+      }
+
+      function renderTable(data, containerElement) {
+        if (!data || Object.keys(data).length === 0) {
+          containerElement.innerHTML = '<p>No data for this location in the selected range.</p>';
+          return;
+        }
+
+        const tableWrap = document.createElement('div');
+        tableWrap.className = 'table-wrap';
+
+        const table = document.createElement('table');
+        table.className = 'report-table';
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Total Collection</td><td>${formatNumber(data.totalCollection)}</td></tr>
+            <tr><td>Total Online Collection</td><td>${formatNumber(data.totalOnlineCollection)}</td></tr>
+            <tr><td>Total Cash Collection</td><td>${formatNumber(data.totalCashCollection)}</td></tr>
+            <tr><td>Total Remittance to Bank</td><td>${formatNumber(data.totalRemittanceToBank)}</td></tr>
+          </tbody>
+        `;
+        tableWrap.appendChild(table);
+        containerElement.appendChild(tableWrap);
+      }
+
+      function switchTab(targetId) {
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+
+        const btn = document.querySelector(`.tab-button[data-target="${targetId}"]`);
+        if (btn) btn.classList.add('active');
+        const content = document.getElementById(`tabContent_${targetId}`);
+        if (content) content.classList.remove('hidden');
+      }
+
+      function onReportFailure(error) {
+        generateReportBtn.classList.remove('loading');
+        generateReportBtn.disabled = false;
+        showMessage("An error occurred while generating the report: " + (error && error.message ? error.message : error), "error");
+        reportTabsContainer.innerHTML = '';
+        tabContentContainer.innerHTML = '';
+        overallSummaryDiv.classList.add('hidden');
+        downloadReportBtn.classList.add('hidden');
+      }
+
+      adminLogoutButton.addEventListener('click', () => {
+        showAdminLoginForm();
+        showMessage("Logged out successfully.", "success");
+        reportTabsContainer.innerHTML = '';
+        tabContentContainer.innerHTML = '';
+        overallSummaryDiv.classList.add('hidden');
+        downloadReportBtn.classList.add('hidden');
+      });
+
+      downloadReportBtn.addEventListener('click', async () => {
+        downloadReportBtn.classList.add('loading');
+        downloadReportBtn.disabled = true;
+        hideMessage();
+
+        const fromDateStr = fromDateInput.value;
+        const toDateStr = toDateInput.value;
+
+        try {
+          const csvString = await google.script.run
+            .withSuccessHandler((csv) => {
+              downloadReportBtn.classList.remove('loading');
+              downloadReportBtn.disabled = false;
+              if (csv) {
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Income_Report_${fromDateStr}_to_${toDateStr}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showMessage("Report downloaded successfully!", "success");
+              } else {
+                showMessage("No data to download or CSV generation failed.", "error");
+              }
+            })
+            .withFailureHandler((error) => {
+              downloadReportBtn.classList.remove('loading');
+              downloadReportBtn.disabled = false;
+              console.error("CSV download failed:", error);
+              showMessage("Failed to download report: " + (error && error.message ? error.message : error), "error");
+            })
+            .getReportCsvData(fromDateStr, toDateStr);
+        } catch (error) {
+          downloadReportBtn.classList.remove('loading');
+          downloadReportBtn.disabled = false;
+          console.error("Error initiating CSV download:", error);
+          showMessage("Error initiating CSV download: " + (error && error.message ? error.message : error), "error");
+        }
+      });
+
+      document.getElementById('downloadAdminPdfBtn').addEventListener('click', function() {
+        const fromDateStr = document.getElementById('fromDate').value;
+        const toDateStr = document.getElementById('toDate').value;
+        showMessage("Generating PDF...", "info");
+
+        google.script.run
+          .withSuccessHandler(function(base64) {
+            const byteCharacters = atob(base64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], {type: 'application/pdf'});
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Income_Admin_Report_${fromDateStr}_to_${toDateStr}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showMessage("PDF generated and downloaded!", "success");
+          })
+          .withFailureHandler(function(err) {
+            showMessage("PDF generation failed: " + (err && err.message ? err.message : err), "error");
+          })
+          .generateAdminPdfReportBase64(fromDateStr, toDateStr);
+      });
+
+      // Message helpers
+      function showMessage(msg, type) {
+        messageBox.textContent = msg;
+        messageBox.className = 'message-box ' + (type || '');
+        messageBox.style.display = 'block';
+      }
+      function hideMessage() {
+        messageBox.classList.add('hidden');
+        messageBox.style.display = 'none';
+      }
+      function formatNumber(num) {
+        if (typeof num !== 'number' || isNaN(num)) return 'N/A';
+        return num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+    </script>
+  </body>
+</html>
