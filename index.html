@@ -44,7 +44,7 @@
             <label for="password">Password:</label>
             <input type="password" id="password" name="password" required>
           </div>
-          <button type="submit" class="btn btn-primary w-full">
+          <button type="submit" id="loginButton" class="btn btn-primary w-full">
             <span>Login</span>
             <div class="loading-spinner"></div>
           </button>
@@ -120,7 +120,6 @@
     </div>
 
     <script>
-      // (JS kept mostly identical to original but adapted to responsive changes)
       // DOM Elements
       const loginSection = document.getElementById('loginSection');
       const dataEntrySection = document.getElementById('dataEntrySection');
@@ -161,6 +160,7 @@
       myReportFromDateInput.setAttribute('max', todayFormatted);
       myReportToDateInput.setAttribute('max', todayFormatted);
 
+      // UI helpers
       function showLoginForm() {
         loginSection.classList.remove('hidden');
         dataEntrySection.classList.add('hidden');
@@ -179,9 +179,10 @@
       }
       document.addEventListener('DOMContentLoaded', showLoginForm);
 
-      loginForm.addEventListener('submit', async function(e) {
+      // --- Login (use google.script.run callbacks) ---
+      loginForm.addEventListener('submit', function(e) {
         e.preventDefault();
-        const loginButton = loginForm.querySelector('button[type="submit"]');
+        const loginButton = document.getElementById('loginButton');
         loginButton.classList.add('loading');
         loginButton.disabled = true;
         hideMessage();
@@ -189,39 +190,31 @@
         const username = document.getElementById('username').value;
         const password = document.getElementById('password').value;
 
-        try {
-          const response = await google.script.run
-            .withSuccessHandler((result) => {
-              loginButton.classList.remove('loading');
-              loginButton.disabled = false;
-
-              if (result.success) {
-                currentUserLocation = result.locationName;
-                locationTitle.textContent = `${currentUserLocation} Income Entry`;
-                showDataEntryForm();
-                showMessage(result.message, "success");
-              } else {
-                showMessage(result.message || "Login failed. Please check credentials.", "error");
-              }
-            })
-            .withFailureHandler((error) => {
-              console.error("Apps Script login call failed:", error);
-              showMessage("An unexpected error occurred during login. Please try again.", "error");
-              loginButton.classList.remove('loading');
-              loginButton.disabled = false;
-            })
-            .handleLogin(username, password);
-        } catch (error) {
-          console.error("Login process error:", error);
-          showMessage("An unexpected error occurred. Please try again.", "error");
-          loginButton.classList.remove('loading');
-          loginButton.disabled = false;
-        }
+        google.script.run
+          .withSuccessHandler(function(result) {
+            loginButton.classList.remove('loading');
+            loginButton.disabled = false;
+            if (result.success) {
+              currentUserLocation = result.locationName;
+              locationTitle.textContent = `${currentUserLocation} Income Entry`;
+              showDataEntryForm();
+              showMessage(result.message, "success");
+            } else {
+              showMessage(result.message || "Login failed. Please check credentials.", "error");
+            }
+          })
+          .withFailureHandler(function(error) {
+            loginButton.classList.remove('loading');
+            loginButton.disabled = false;
+            console.error("Apps Script login call failed:", error);
+            showMessage("An unexpected error occurred during login. Please try again.", "error");
+          })
+          .handleLogin(username, password);
       });
 
+      // --- Data Entry Form (modal confirmation + submission) ---
       dataEntryForm.addEventListener('submit', function(e) {
         e.preventDefault();
-
         const date = document.getElementById('date').value;
         const totalCollection = parseFloat(document.getElementById('totalCollection').value);
         const onlineCollection = parseFloat(document.getElementById('onlineCollection').value);
@@ -264,7 +257,7 @@
         showMessage("Submission cancelled.", "info");
       });
 
-      async function submitActualData() {
+      function submitActualData() {
         const submitButton = dataEntryForm.querySelector('button[type="submit"]');
         submitButton.classList.add('loading');
         submitButton.disabled = true;
@@ -278,15 +271,10 @@
           location: currentUserLocation
         };
 
-        try {
-          const response = await google.script.run
-            .withSuccessHandler(onDataSubmitSuccess)
-            .withFailureHandler(onDataSubmitFailure)
-            .processFormData(formData);
-        } catch (error) {
-          console.error("Data submission call failed:", error);
-          onDataSubmitFailure(error);
-        }
+        google.script.run
+          .withSuccessHandler(onDataSubmitSuccess)
+          .withFailureHandler(onDataSubmitFailure)
+          .processFormData(formData);
       }
 
       function onDataSubmitSuccess(response) {
@@ -313,15 +301,15 @@
         showMessage("An unexpected error occurred during data submission: " + (error && error.message ? error.message : error), "error");
       }
 
+      // --- Logout ---
       logoutButton.addEventListener('click', () => {
         currentUserLocation = null;
         showMessage("Logged out successfully.", "success");
         showLoginForm();
       });
 
-      viewMyReportBtn.addEventListener('click', viewMyReport);
-
-      async function viewMyReport() {
+      // --- View My Report (use google.script.run callbacks) ---
+      viewMyReportBtn.addEventListener('click', function() {
         viewMyReportBtn.classList.add('loading');
         viewMyReportBtn.disabled = true;
         myReportContainer.innerHTML = '<p class="no-data-message">Loading your report...</p>';
@@ -369,16 +357,11 @@
           return;
         }
 
-        try {
-          const reportData = await google.script.run
-            .withSuccessHandler(renderMyReport)
-            .withFailureHandler(onViewMyReportFailure)
-            .getMyAggregatedData(currentUserLocation, fromDateStr, toDateStr);
-        } catch (error) {
-          console.error("Error fetching my report data:", error);
-          onViewMyReportFailure(error);
-        }
-      }
+        google.script.run
+          .withSuccessHandler(renderMyReport)
+          .withFailureHandler(onViewMyReportFailure)
+          .getMyAggregatedData(currentUserLocation, fromDateStr, toDateStr);
+      });
 
       function renderMyReport(reportData) {
         viewMyReportBtn.classList.remove('loading');
@@ -457,6 +440,7 @@
         showMessage("Error loading your report: " + (error && error.message ? error.message : error), "error");
       }
 
+      // --- Message Box Helpers ---
       function showMessage(msg, type) {
         messageBox.textContent = msg;
         messageBox.className = `message-box ${type}`;
