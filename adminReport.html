@@ -29,7 +29,6 @@
       .loading-spinner { border:4px solid rgba(255,255,255,0.2); border-top:4px solid #fff; border-radius:50%; width:18px; height:18px; animation:spin 1s linear infinite; margin-left:8px; display:none; }
       .btn.loading .loading-spinner { display:inline-block; }
       @keyframes spin { 0%{transform:rotate(0deg)}100%{transform:rotate(360deg)} }
-      /* small screens */
       @media (max-width:640px) {
         .container { padding:16px; }
         .form-group { margin-bottom:12px; }
@@ -54,7 +53,7 @@
             <label for="adminPassword">Password:</label>
             <input type="password" id="adminPassword" name="adminPassword" required>
           </div>
-          <button type="submit" class="btn btn-primary w-full">
+          <button type="submit" id="adminLoginButton" class="btn btn-primary w-full">
             <span>Login</span>
             <div class="loading-spinner"></div>
           </button>
@@ -139,13 +138,13 @@
       const overallTotalRemittanceToBankSpan = document.getElementById('overallTotalRemittanceToBank');
       const downloadReportBtn = document.getElementById('downloadReportBtn');
 
-      // Set default date range (e.g., current month)
+      // Set default date range (current month)
       const today = new Date();
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       const yyyy = today.getFullYear();
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const dd = String(today.getDate()).padStart(2, '0');
-      
+
       const firstDayYyyy = firstDayOfMonth.getFullYear();
       const firstDayMm = String(firstDayOfMonth.getMonth() + 1).padStart(2, '0');
       const firstDayDd = String(firstDayOfMonth.getDate()).padStart(2, '0');
@@ -159,6 +158,7 @@
 
       let currentReportData = null;
 
+      // UI helpers
       function showAdminLoginForm() {
         adminLoginSection.classList.remove('hidden');
         reportSection.classList.add('hidden');
@@ -176,9 +176,10 @@
 
       document.addEventListener('DOMContentLoaded', showAdminLoginForm);
 
-      adminLoginForm.addEventListener('submit', async function(e) {
+      // --- Admin Login (use google.script.run callbacks) ---
+      adminLoginForm.addEventListener('submit', function(e) {
         e.preventDefault();
-        const loginButton = adminLoginForm.querySelector('button[type="submit"]');
+        const loginButton = document.getElementById('adminLoginButton');
         loginButton.classList.add('loading');
         loginButton.disabled = true;
         hideMessage();
@@ -186,38 +187,32 @@
         const username = document.getElementById('adminUsername').value;
         const password = document.getElementById('adminPassword').value;
 
-        try {
-          const response = await google.script.run
-            .withSuccessHandler((result) => {
-              loginButton.classList.remove('loading');
-              loginButton.disabled = false;
+        google.script.run
+          .withSuccessHandler(function(result) {
+            loginButton.classList.remove('loading');
+            loginButton.disabled = false;
 
-              if (result.success) {
-                showReportSection();
-                showMessage(result.message, "success");
-                generateReport(); // Automatically generate report for default dates after login
-              } else {
-                showMessage(result.message || "Login failed. Please check credentials.", "error");
-              }
-            })
-            .withFailureHandler((error) => {
-              console.error("Apps Script admin login call failed:", error);
-              showMessage("An unexpected error occurred during admin login. Please try again.", "error");
-              loginButton.classList.remove('loading');
-              loginButton.disabled = false;
-            })
-            .handleAdminLogin(username, password);
-        } catch (error) {
-          console.error("Admin login process error:", error);
-          showMessage("An unexpected error occurred. Please try again.", "error");
-          loginButton.classList.remove('loading');
-          loginButton.disabled = false;
-        }
+            if (result.success) {
+              showReportSection();
+              showMessage(result.message, "success");
+              generateReport(); // auto generate for default dates
+            } else {
+              showMessage(result.message || "Login failed. Please check credentials.", "error");
+            }
+          })
+          .withFailureHandler(function(error) {
+            loginButton.classList.remove('loading');
+            loginButton.disabled = false;
+            console.error("Apps Script admin login call failed:", error);
+            showMessage("An unexpected error occurred during admin login. Please try again.", "error");
+          })
+          .handleAdminLogin(username, password);
       });
 
+      // --- Generate Report ---
       generateReportBtn.addEventListener('click', generateReport);
 
-      async function generateReport() {
+      function generateReport() {
         hideMessage();
         overallSummaryDiv.classList.add('hidden');
         downloadReportBtn.classList.add('hidden');
@@ -251,15 +246,10 @@
         generateReportBtn.classList.add('loading');
         generateReportBtn.disabled = true;
 
-        try {
-          const response = await google.script.run
-            .withSuccessHandler(renderReport)
-            .withFailureHandler(onReportFailure)
-            .getAggregatedReportData(fromDateStr, toDateStr);
-        } catch (error) {
-          console.error("Report data fetch failed:", error);
-          onReportFailure(error);
-        }
+        google.script.run
+          .withSuccessHandler(renderReport)
+          .withFailureHandler(onReportFailure)
+          .getAggregatedReportData(fromDateStr, toDateStr);
       }
 
       function renderReport(reportData) {
@@ -386,7 +376,8 @@
         downloadReportBtn.classList.add('hidden');
       });
 
-      downloadReportBtn.addEventListener('click', async () => {
+      // --- Download CSV ---
+      downloadReportBtn.addEventListener('click', function() {
         downloadReportBtn.classList.add('loading');
         downloadReportBtn.disabled = true;
         hideMessage();
@@ -394,41 +385,35 @@
         const fromDateStr = fromDateInput.value;
         const toDateStr = toDateInput.value;
 
-        try {
-          const csvString = await google.script.run
-            .withSuccessHandler((csv) => {
-              downloadReportBtn.classList.remove('loading');
-              downloadReportBtn.disabled = false;
-              if (csv) {
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Income_Report_${fromDateStr}_to_${toDateStr}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                showMessage("Report downloaded successfully!", "success");
-              } else {
-                showMessage("No data to download or CSV generation failed.", "error");
-              }
-            })
-            .withFailureHandler((error) => {
-              downloadReportBtn.classList.remove('loading');
-              downloadReportBtn.disabled = false;
-              console.error("CSV download failed:", error);
-              showMessage("Failed to download report: " + (error && error.message ? error.message : error), "error");
-            })
-            .getReportCsvData(fromDateStr, toDateStr);
-        } catch (error) {
-          downloadReportBtn.classList.remove('loading');
-          downloadReportBtn.disabled = false;
-          console.error("Error initiating CSV download:", error);
-          showMessage("Error initiating CSV download: " + (error && error.message ? error.message : error), "error");
-        }
+        google.script.run
+          .withSuccessHandler(function(csv) {
+            downloadReportBtn.classList.remove('loading');
+            downloadReportBtn.disabled = false;
+            if (csv) {
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `Income_Report_${fromDateStr}_to_${toDateStr}.csv`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+              showMessage("Report downloaded successfully!", "success");
+            } else {
+              showMessage("No data to download or CSV generation failed.", "error");
+            }
+          })
+          .withFailureHandler(function(error) {
+            downloadReportBtn.classList.remove('loading');
+            downloadReportBtn.disabled = false;
+            console.error("CSV download failed:", error);
+            showMessage("Failed to download report: " + (error && error.message ? error.message : error), "error");
+          })
+          .getReportCsvData(fromDateStr, toDateStr);
       });
 
+      // --- Download Admin PDF ---
       document.getElementById('downloadAdminPdfBtn').addEventListener('click', function() {
         const fromDateStr = document.getElementById('fromDate').value;
         const toDateStr = document.getElementById('toDate').value;
@@ -438,13 +423,10 @@
           .withSuccessHandler(function(base64) {
             const byteCharacters = atob(base64);
             const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
-            }
+            for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
             const byteArray = new Uint8Array(byteNumbers);
             const blob = new Blob([byteArray], {type: 'application/pdf'});
             const url = URL.createObjectURL(blob);
-
             const a = document.createElement('a');
             a.href = url;
             a.download = `Income_Admin_Report_${fromDateStr}_to_${toDateStr}.pdf`;
@@ -460,7 +442,7 @@
           .generateAdminPdfReportBase64(fromDateStr, toDateStr);
       });
 
-      // Message helpers
+      // --- Message helpers ---
       function showMessage(msg, type) {
         messageBox.textContent = msg;
         messageBox.className = 'message-box ' + (type || '');
