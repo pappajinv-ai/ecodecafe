@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>EcoDecafe App (Embedded)</title>
+    <title>EcoDecafe Admin (Embedded)</title>
     <style>
       html,body{height:100%;margin:0}
       #appFrame{width:100%;border:0;display:block;min-height:200px;}
     </style>
   </head>
   <body>
-    <!-- Paste your Apps Script exec URL into the src below after you deploy the script -->
+    <!-- Paste your Apps Script exec URL plus ?app=admin into the src below after you deploy the script -->
     <iframe id="appFrame"
-            src="REPLACE_WITH_YOUR_APPS_SCRIPT_EXEC_URL"
-            title="EcoDecafe App"></iframe>
+            src="REPLACE_WITH_YOUR_APPS_SCRIPT_EXEC_URL?app=admin"
+            title="EcoDecafe Admin"></iframe>
 
     <script>
       const iframe = document.getElementById('appFrame');
@@ -28,7 +28,6 @@
         try { iframe.contentWindow && iframe.contentWindow.postMessage({ type: 'requestHeight' }, '*'); } catch (e) {}
       }, 1000);
 
-      // set initial height
       iframe.style.height = (window.innerHeight || 800) + 'px';
     </script>
   </body>

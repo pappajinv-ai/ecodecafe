@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Income Report PDF</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;padding:14px}
+    h1,h2{margin:0 0 8px 0}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th,td{border:1px solid #ccc;padding:6px;text-align:left}
+    th{background:#f4f4f4}
+  </style>
+</head>
+<body>
+  <h1>Admin Income Report</h1>
+  <div>Period: <?= fromDate ?> to <?= toDate ?></div>
+  <div>Generated: <?= generatedOn ?> by <?= generatedBy ?></div>
+
+  <h2 style="margin-top:12px">Summary by Shop</h2>
+  <table>
+    <thead><tr><th>Shop</th><th>Total</th><th>Online</th><th>Cash</th><th>Remittance</th></tr></thead>
+    <tbody>
+      <? for (var i=0; i < abstract.length; i++) { ?>
+        <tr>
+          <td><?= abstract[i].shop ?></td>
+          <td><?= abstract[i].total.toFixed(2) ?></td>
+          <td><?= abstract[i].online.toFixed(2) ?></td>
+          <td><?= abstract[i].cash.toFixed(2) ?></td>
+          <td><?= abstract[i].remit.toFixed(2) ?></td>
+        </tr>
+      <? } ?>
+    </tbody>
+  </table>
+
+  <h2 style="margin-top:12px">Totals</h2>
+  <table>
+    <tr><th>Total Collection</th><td><?= total.total.toFixed(2) ?></td></tr>
+    <tr><th>Total Online</th><td><?= total.online.toFixed(2) ?></td></tr>
+    <tr><th>Total Cash</th><td><?= total.cash.toFixed(2) ?></td></tr>
+    <tr><th>Total Remittance</th><td><?= total.remit.toFixed(2) ?></td></tr>
+  </table>
+
+  <h2 style="margin-top:12px">Day by Day (All Shops)</h2>
+  <table>
+    <thead><tr><th>Date</th><th>Total</th><th>Online</th><th>Cash</th><th>Remit</th></tr></thead>
+    <tbody>
+      <? for (var j = 0; j < totalByDate.length; j++) { ?>
+        <tr>
+          <td><?= totalByDate[j].date ?></td>
+          <td><?= totalByDate[j].total.toFixed(2) ?></td>
+          <td><?= totalByDate[j].online.toFixed(2) ?></td>
+          <td><?= totalByDate[j].cash.toFixed(2) ?></td>
+          <td><?= totalByDate[j].remit.toFixed(2) ?></td>
+        </tr>
+      <? } ?>
+    </tbody>
+  </table>
+</body>
+</html>
